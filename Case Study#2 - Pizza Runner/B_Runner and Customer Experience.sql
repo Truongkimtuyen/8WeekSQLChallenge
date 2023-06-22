@@ -1,4 +1,4 @@
-use Challenge
+
 --============================= B. Runner and Customer Experience
 --1. How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
 
@@ -8,11 +8,30 @@ select
 from runners
 group by datepart(wk,registration_date)
 
+Result:
+| Week_number |	Total_runners_registration |
+|  ---------  |          ---------         |
+|	1     |		    1              |
+|	2     |		    2              |
+|	3     |             1              |
+
+Answer:
+- On Week 2 of Jan 2021, 2 new runner signed up.
+- On Week 1 and 3 of Jan 2021, 1 new runner signed up.
+
+
 --2. What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
 
-select runner_id,round(avg(datediff(minute,co.order_time,try_cAST(ro.pickup_time AS DATETIME2))),2) as avg_time
+select round(avg(datediff(minute,co.order_time,try_cAST(ro.pickup_time AS DATETIME2))),2) as avg_time
 from customer_orders co join runner_orders ro on co.order_id=ro.order_id
-group by runner_id
+
+Result:
+|  avg_time  |
+|------------|
+|	18   |
+
+Answer:
+It takes each runner 16 minutes on the average to pick up the order
 
 --3. Is there any relationship between the number of pizzas and how long the order takes to prepare?
 with cte as (select co.order_id,
@@ -26,12 +45,35 @@ select total_order,
 		avg(time_pre) as avg_time
 from cte
 group by total_order
+
+Result:
+| total_order |	     avg_time     |
+|  ---------  |     ---------     |
+|	1     |		12	  |
+|	2     |		18	  |
+|	3     |		30	  |
+
+Answer:
+From the above, the more the pizza contained in an order, the longer it takes for that order to be ready.
+
 --4. What was the average distance travelled for each customer?
 
 select co.customer_id,round(avg(cast(REPLACE(distance,'km','') as float)),2)as avg_distance
 from customer_orders co join runner_orders ro on ro.order_id=co.order_id
 where ro.pickup_time <> 'null'
 group by co.customer_id
+
+Result:
+|  customer_id	|   avg_distance    |
+|  ---------    |    ---------      |
+|	101	|	20	    |
+|	102	|	16.73       |  
+|	103	|	23.4        |
+|	104	|	10          |
+|	105	|	25          |
+
+Answer:
+Customer 105 stays farthest (25km) while Customer 104 stays closest (10km).
 
 --5. What was the difference between the longest and shortest delivery times for all orders?
 with cte as (select*,
@@ -45,6 +87,14 @@ select min(new) as min_minute
 		, max(new)-min(new) as variability
 from cte
 
+Results:
+|   min_minute	|   max_minute	  |  variability   |
+|  ---------    |    ---------    |   ---------    |
+|	10	|  	40	  |      30        |
+
+Answer:
+The difference between the longest and shortest delivery times is 30 minutes
+
 --6. What was the average speed for each runner for each delivery and do you notice any trend for these values?
 with cte as(	select order_id,runner_id,
 		cast((case when duration like '%min%' then LEFT(duration,2)
@@ -56,29 +106,30 @@ with cte as(	select order_id,runner_id,
 	from runner_orders
 )
 
-select runner_id,
-		round((new_distance*(new_duration/60)),2) as avg_speed,
+select distinct runner_id,customer_id,
+		round((new_distance/(new_duration/60)),2) as avg_speed,
 		round((new_distance),2) as avg_distance
-from cte 
+from cte c join customer_orders co on c.order_id = co.order_id
 where new_distance is not null
 order by runner_id
 
+Results:
+|   runner_id	|   customer_id   |   avg_speed	   |  avg_distance |
+|  ---------    |    ---------    |   ---------    |    ---------  |
+| 	1	| 	101	  | 	37.5	   | 	  20       |
+| 	1	| 	101	  | 	44.44	   |      20       |
+| 	1	| 	102	  | 	40.2	   |     13.4      |
+| 	1	| 	104	  | 	60	   |      10       |
+| 	2	| 	102	  | 	93.6	   |     23.4      |
+| 	2	| 	103	  | 	35.1	   |     23.4      |
+| 	2	| 	105	  | 	60	   |      25       |
+| 	3	|	104	  | 	40	   |      10       |
 
+Answer:
+Of concern is Runner 2â€™s speed.
+There is a large variance between the lowest(35.1km/hr) and highest speeds (93.6km/hr).
 
 --7. What is the successful delivery percentage for each runner?
-with cte as (select co.customer_id,ro.pickup_time,
-				cast(count(co.order_id) over(partition by co.customer_id order by co.customer_id) as float) as total_order
-			from runner_orders ro join customer_orders co on co.order_id=ro.order_id
-						)
-select
-	customer_id, total_order,
-	cast(count(*) as float) as total_order_success,
-	round((count(*)/total_order)*100,2) as Percentage_order_success
-from cte
-where pickup_time <> 'null'
-group by customer_id,total_order
-order by customer_id
---- runner ch? l?y b?ng runner order vì ch? có 10 order, b?ng customer_order có 14 order_id, do có có nhi?u s?n ph?m cùng bill nên cùng order_id 
 with cte as (select ro.runner_id,ro.order_id,ro.pickup_time,
 				cast(count(ro.order_id) over(partition by ro.runner_id order by ro.runner_id) as float) as total_order
 			from runner_orders ro 
@@ -92,3 +143,17 @@ from cte
 where pickup_time <> 'null'
 group by runner_id,total_order
 order by runner_id
+
+Result:
+|   runner_id	|  total_order	  | total_order_success	|   Percentage_order_success   |
+|  ---------    |    ---------    |       ---------     |          ---------           |
+|	1	|	4	  |	     4		|		100            |
+|	2	|	4	  |	     3		|		75	       |
+|	3	|	2	  |	     1		|		50             |
+
+Anwers:
+Runner 1 has highest percentage of successful deliveries (100%) while Runner 3 has the least (50%). 
+But itâ€™s important to note that itâ€™s beyond the control of the runner as either the customer or the restaurant can cancel orders.
+
+
+
