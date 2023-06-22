@@ -1,10 +1,14 @@
-use Challenge
 
 ----------- B. Data Analysis Questions
 --1. How many customers has Foodie-Fi ever had?
-select count( distinct customer_id) as distinct total_customer
+select count( distinct customer_id) as total_customer
 from subscriptions
 where plan_id <> 0
+
+result:
+| total_customer |
+|  ------------  |
+|     1000       |
 
 --2. What is the monthly distribution of trial plan start_date values for our dataset 
 -------- use the start of the month as the group by value
@@ -14,6 +18,25 @@ from subscriptions
 where plan_id = 0
 group by datepart(month,start_date)
 
+Result:
+| Month	    |  total_customer |
+|  -------- |    --------     |
+|	1   |	    88	      |
+|	2   |	    68        |
+|	3   |	    94        |
+|	4   |	    81        |
+|	5   |	    88        |
+|	6   |	    79        |
+|	7   |	    89        |
+|	8   |	    88        |
+|	9   |	    87        |
+|	10  |	    79        |
+|	11  |	    75        |
+|	12  |	    84        |
+
+Anwers:
+March has the highest number of trial plans, while February has the lowest number of trial plans.
+
 --3. What plan start_date values occur after the year 2020 for our dataset? 
 ------Show the breakdown by count of events for each plan_name
 select
@@ -22,15 +45,14 @@ select
 	count(s.customer_id) over(partition by p.plan_name order by p.plan_name) as 'count_of_event'	
 from subscriptions s join plans p on s.plan_id=p.plan_id
 where datepart(year,s.start_date) > 2020;
---- another ways
-select
-	distinct p.plan_id,
-	p.plan_name,
-	count(s.customer_id) as 'count_of_event'
-from subscriptions s join plans p on s.plan_id=p.plan_id
-where datepart(year,s.start_date) > 2020
-group by p.plan_id,p.plan_name
-order by p.plan_id
+
+Result:
+|  plan_id  |	 plan_name    |	count_of_event  |
+|  -------- |    --------     |      --------   |
+|	1   |	basic monthly | 	8       |
+|	2   |	pro monthly   | 	60      |
+|	3   |	pro annual    | 	63      |
+|	4   |	churn	      |         71      |
 
 	
 --4. What is the customer count and percentage of customers who have churned rounded to 1 decimal place?
