@@ -1,4 +1,3 @@
-use Challenge
 ----======C. Ingredient Optimisation
 --1. What are the standard ingredients for each pizza?
 ----- create a temporary table to split ingridients
@@ -20,7 +19,15 @@ from standar_pizza_recipes_temp s join pizza_toppings  pt on s.toppings = pt.top
 	join pizza_names pn on pn.pizza_id = s.pizza_id
 group by s.pizza_id,pn.pizza_name
 order by s.pizza_id,pn.pizza_name	
-	
+
+Result:
+|  pizza_id   |	   pizza_name    |                 name_topping_recipe                   	        |
+|  ---------  | ---------------- |                  ----------------					|	
+|	1     |    Meatlovers	 |	Bacon,BBQ Sauce,Beef,Cheese,Chicken,Mushrooms,Pepperoni,Salami  |
+|	2     |    Vegetarian	 |	Cheese,Mushrooms,Onions,Peppers,Tomatoes,Tomato Sauce           |
+
+
+
 --2. What was the most commonly added extra?
 with cte as (select 
 				*,
@@ -37,6 +44,12 @@ from cte left join standar_pizza_recipes_temp a on cte.new_extra =a.toppings
 		join pizza_toppings pt on pt.topping_id=a.toppings
 group by pt.topping_id,pt.topping_name
 order by count(cte.new_extra) desc
+
+Result:
+|  topping_id	| topping_name	| total_apparence | 
+|  ---------    | ------------- |  -------------  | 
+|      1	|     Bacon	|         4	  | 
+
 --3. What was the most common exclusion?
 with cte as (select 
 					order_id,
@@ -52,29 +65,27 @@ from cte join pizza_recipes pr on cte.pizza_id=pr.pizza_id
 		join pizza_toppings pt on pt.topping_id=cte.new_exclusions
 group by pt.topping_name
 order by count(*) desc
+
+Result:
+| topping_name	| total_appearance | 
+|  ---------    |  -------------   |  
+|    Cheese	|        4         |
+
 --4. Generate an order item for each record in the customers_orders table in the format of one of the following:
 --4.1 Meat Lovers
 --4.2 Meat Lovers - Exclude Beef
 --4.3 Meat Lovers - Extra Bacon
 --4.4 Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
--- split các giá tr?
-select * from customer_orders_extra_tepm;
-select * from customer_orders_exclusions_tepm;
-
 --create extra_tepm
 select order_id,customer_id,pizza_id,value new_extras
 into customer_orders_extra_tepm
 from customer_orders outer apply string_split(extras,',') 
-
-select * from customer_orders_extra_tepm
 --create exclusions_tepm
 select order_id,customer_id,pizza_id,value new_exclusions
 into customer_orders_exclusions_tepm
 from customer_orders outer apply string_split(exclusions,',') 
-
-select * from customer_orders_exclusions_tepm
 --join tables to find name of topping
-	-------create a table with string_agg  have name_extra
+-------create a table with string_agg  have name_extra
 with topping_name_new_extra as (
 				select distinct ce.order_id,ce.customer_id,ce.pizza_id,ce.new_extras,a.topping_name
 				from customer_orders_extra_tepm ce left join standar_pizza_recipes_temp b on b.toppings=ce.new_extras
@@ -106,3 +117,20 @@ select order_id,
 			when name_extra is not null and name_exclusion is null then CONCAT('Meat Lovers','- Extra ',name_extra)
 			when name_extra is not null and name_exclusion is not null then CONCAT('Meat Lovers','- Extra ',name_extra,'- Exclude ',name_exclusion ) end) as order_items
 from sumary_cte
+
+Result:
+
+|   order_id	|  			order_items   			          |
+|  ---------    | 			-------------  	 	                  |  
+|	1       |  Meat Lovers						          |
+|	2	|  Meat Lovers				                          |
+|	3	|  Meat Lovers                                                    |
+|	3	|  Meat Lovers                                                    |
+|	4	|  Meat Lovers- Exclude Cheese                                    |
+|	4	|  Meat Lovers- Exclude Cheese                                    |
+|	5	|  Meat Lovers- Extra Bacon                                       |
+|	6	|  Meat Lovers                                                    |
+|	7	|  Meat Lovers- Extra Bacon                                       |
+|	8	|  Meat Lovers                                            	  |
+	|	9	|  Meat Lovers- Extra Chicken,Bacon- Exclude Cheese       |
+|	10	|  Meat Lovers- Extra Cheese,Bacon- Exclude Mushrooms,BBQ Sauce   |
