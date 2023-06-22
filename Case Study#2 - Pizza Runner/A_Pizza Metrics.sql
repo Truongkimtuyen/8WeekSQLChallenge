@@ -1,11 +1,20 @@
-use Challenge
+
 --A. Pizza Metrics
 --1.How many pizzas were ordered?
-SELECT count(*) as total_order
+SELECT count(*) as total_orders
 from customer_orders
+
+Result:
+|  total_orders  |
+|  ------------  |
+|	14	 |
+
 --2.How many unique customer orders were made?
-select COUNT(DISTINCT C.order_id)
-from customer_orders c 
+select customer_id,
+	COUNT(DISTINCT order_id) as total_orders		
+from customer_orders 
+group by customer_id
+
 
 --3.How many successful orders were delivered by each runner?
 select r.runner_id,count(distinct c.order_id) as total_orders
@@ -33,7 +42,7 @@ group by order_id
 order by count(*) desc
 
 --7.For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
--- x? lý null d?ng str ? colum : exclusions,extras
+-- x? lÃ½ null d?ng str ? colum : exclusions,extras
 UPDATE customer_orders
 SET exclusions = CASE WHEN exclusions = 'null' THEN NULL ELSE exclusions END,
     extras = CASE WHEN extras = 'null' THEN NULL ELSE extras END
@@ -51,7 +60,7 @@ select
 from cte join runner_orders r on cte.order_id=r.order_id
 where r.pickup_time <> 'null'
 group by cte.customer_id;
--- cách ng?n h?n
+-- cÃ¡ch ng?n h?n
 select co.customer_id,
 	sum(case when ((len(exclusions)>0 ) or (len(extras)>0  ))  then  1
 			else 0 end ) as change,
