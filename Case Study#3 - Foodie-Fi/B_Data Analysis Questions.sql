@@ -63,8 +63,15 @@ from subscriptions s join plans p on s.plan_id=p.plan_id
 where s.plan_id = 4
 group by plan_name
 
---5. How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
+Results:
+|  plan_name |	total_customer_churn |	 Percentage    |
+|  --------  |       --------        |     --------    |
+|  churn     | 		307	     | 	    30.7       |
 
+Answer:
+There are 307 customers who churned, which is 30.7% of Foodie-Fi customer base.	
+
+--5. How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
 with cte as (select *,
 					lead(plan_id,1) over(partition by customer_id order by start_date) as next_plan
 				from subscriptions
@@ -77,34 +84,82 @@ churned as (
 select count(*) as 'total_churn',
 	   cast(100*count(*)/ (select count(distinct customer_id) from subscriptions) as decimal(16,2)) as 'Percentage'
 from churned;
+
+Result:
+| total_churn  |  Percentage  |
+|   --------   |   --------   |
+|     92       |     9.00     |
+
+Anwers:
+92 customers churned  after the initial free trial which is 9% of entire customer base.
+	
 --6. What is the number and percentage of customer plans after their initial free trial?
 
-select p.plan_name,p.plan_id,
-						count(*) as 'total',
-						cast(100*count(*) / (select count(distinct customer_id) from subscriptions) as decimal(16,2)) as 'percentage'
-					from subscriptions s join plans p on s.plan_id=p.plan_id
-					where p.plan_id <> 0
-					group by p.plan_name,p.plan_id
-					
---7. What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+WITH next_plans AS (
+			  SELECT 
+				customer_id, 
+				plan_id, 
+				LEAD(plan_id) OVER(
+				  PARTITION BY customer_id 
+				  ORDER BY plan_id) as next_plan_id
+			  FROM subscriptions
+)
+select next_plan_id as plan_id,	count(*) as 'total',
+	cast(100*count(*) / (select count(distinct customer_id) from subscriptions) as decimal(16,2)) as 'percentage'
+from next_plans 
+where plan_id =0  and next_plan_id IS NOT NULL 
+group by next_plan_id
 
+Result:
+|   plan_id    |    total    |  percentage  |
+|   --------   |  --------   |   --------   |
+|	1      |    546	     |    54.60     |
+|	2      |    539	     |    53.90     |
+|	3      |    37       |    3.70   |
+|	4      |    92       |    9.20	    |	
+
+Answer:
+- More than 80% of customers are on paid plans for Plans 1 and 2 and 
+	with a small 3.7% on plan 3 (pro annual $199)
+	
+--7. What is the customer count and percentage breakdown of all 5 plan_name values at 2020-12-31?
+(update)
 --8. How many customers have upgraded to an annual plan in 2020?
-select count(distinct customer_id)
+select count(distinct customer_id) as unique_customer
 from subscriptions
 where DATEPART(year,start_date)=2020 and plan_id=3
 
+Result:
+| unique_customer| 
+|    --------    |
+|      195       |
+
+Answer:
+196 customers upgraded to an annual plan in 2020.
+	
 --9. How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
 with date_join as (select *
-							,
-							lead(start_date,1) over(partition by customer_id order by start_date) as joining
-							
-						from subscriptions
-						where plan_id in (0,3)		
-					)
+			,
+			lead(start_date,1) over(partition by customer_id order by start_date) as joining
+			
+		  from subscriptions
+		  where plan_id in (0,3)		
+		)
 select avg(DATEDIFF(day,start_date,joining)) as avg_customer_become_annual_plan
 from date_join
 where joining is not null
+
+Result:
+|avg_customer_become_annual_plan|
+|          --------             |
+|	     104	        |
+
+Answer:
+customers take approximately 104 days from the day they join Foodie-Fi to upgrade to an annual plan.
+	
 --10. Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+-- Solution : + The days between the trial start date and the annual plan start date are computed.
+	      + The days are bucketed in 30 day period by dividing the number of days obtained by 30.
 WITH next_plan_cte AS
   (SELECT *,
           lead(start_date, 1) over(PARTITION BY customer_id
@@ -126,6 +181,18 @@ SELECT window_30_days,
 FROM window_details_cte
 GROUP BY window_30_days
 ORDER BY window_30_days;
+
+Result:
+| window_30_days| customer_count |
+|   --------    |    --------    |
+|       0	|	52	 |
+|	1	|	37	 |
+|	2	|	38	 |
+|	3	|	37	 |
+|	4	|	45	 |
+|	5	|	33	 |
+|	6	|	16       |
+
 --11. How many customers downgraded from a pro monthly to a basic monthly plan in 2020?
 with cte as 
 (select * ,
@@ -136,11 +203,12 @@ select
 	count( case when new_plan_id > plan_id then 1 
 			else null end) as total_downgrade
 from cte
---
-select * ,
-	lag(plan_id,2) over(partition by customer_id order by start_date) as new_plan_id
-from subscriptions
 
-select * ,
-	lead(plan_id,2) over(partition by customer_id order by start_date) as new_plan_id
-from subscriptions
+Result:
+| total_downgrade | 
+|     --------    |
+|       0         |
+
+Answer:
+No customer has downgrade from pro monthly to basic monthly in 2020
+
